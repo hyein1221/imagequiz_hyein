@@ -189,8 +189,8 @@ const autoNextSecInput = document.getElementById('autoNextSec');
 
 const startBtn = document.getElementById('start');
 const demoBtn  = document.getElementById('demo');
-const prevBtn  = document.getElementById('prevBtn');
-const nextBtn  = document.getElementById('nextBtn');
+const prevBtn  = document.getElementById('prev');
+const nextBtn  = document.getElementById('next');
 const revealAllBtn = document.getElementById('revealAll');
 const hideAllBtn   = document.getElementById('hideAll');
 const pauseBtn     = document.getElementById('pause');
@@ -413,33 +413,14 @@ function scheduleAutoNext(){
 }
 function clearNextTimeout(){ if(nextTimeout){ clearTimeout(nextTimeout); nextTimeout=null; } }
 
-/* 단축키: 스페이스(일시정지/재개), D/A(다음/이전) */
-window.addEventListener('keydown', (e) => {
-  // 이 게임 영역이 보이지 않을 때는 단축키를 막는 코드입니다.
-  if (game.style.display === 'none') return;
-
-  const k = e.key.toLowerCase();
-
-  // 스페이스바 기능
-  if (k === ' ') {
-    // 기본 기능(스크롤 등)을 막습니다.
-    e.preventDefault(); 
-    paused ? (paused = false, startAutoReveal(), startCountdown()) : (paused = true, stopAutoReveal(), stopCountdown(), clearNextTimeout());
-  }
-
-  // 다음/이전 기능
-  if (k === 'd') {
-    nextBtn.click();
-  }
-  if (k === 'a') {
-    prevBtn.click();
-  }
+/* 단축키: 스페이스(일시정지/재개), d/a(다음/이전) */
+window.addEventListener('keydown',(e)=>{
+  if(game.style.display==='none') return;
+  const k=e.key.toLowerCase();
+  if(k===' '){ e.preventDefault(); paused ? (paused=false, startAutoReveal(), startCountdown()) : (paused=true, stopAutoReveal(), stopCountdown(), clearNextTimeout()); }
+  if(k==='d'){ nextBtn.click(); }
+  if(k==='a'){ prevBtn.click(); }
 });
 </script>
 </body>
 </html>
-
-
-
-
-
