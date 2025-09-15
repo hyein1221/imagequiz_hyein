@@ -413,16 +413,17 @@ function scheduleAutoNext(){
 }
 function clearNextTimeout(){ if(nextTimeout){ clearTimeout(nextTimeout); nextTimeout=null; } }
 
-/* 단축키: 스페이스(일시정지/재개), D/A(다음/이전) */
+/* 단축키: 스페이스(일시정지/다시 시작), D/A(다음/이전) */
 window.addEventListener('keydown',(e)=>{
   if(game.style.display==='none') return;
   const k=e.key.toLowerCase();
   if(k===' '){ e.preventDefault(); paused ? (paused=false, startAutoReveal(), startCountdown()) : (paused=true, stopAutoReveal(), stopCountdown(), clearNextTimeout()); }
-  if(k==='D'){ nextBtn.click(); }
-  if(k==='A'){ prevBtn.click(); }
+  if(k==='d'){ nextBtn.click(); }
+  if(k==='a'){ prevBtn.click(); }
 });
 </script>
 </body>
 </html>
+
 
 
