@@ -153,7 +153,8 @@
   </div>
 
   <div class="panel">
-    <div class="hint">Tip) 10×10, 자동공개 200~400ms 타이머 20~30초로 먼저 테스트 후 난이도 조절하세요. <br> 자동 공개 간격의 경우 숫자가 낮을 수록 빨리 공개됩니다. <br> 단축키: 스페이스(일시정지/다시 시작), A/D(이전/다음)</div>
+    <div class="hint">Tip) 10×10, 자동공개 200~400ms 타이머 20~30초로 먼저 테스트 후 난이도 조절하세요. <br> 자동 공개 간격의 경우 숫자가 낮을 수록 빨리 공개됩니다. 
+    </div> 단축키: 스페이스(일시정지/다시 시작), A/D(이전/다음), O(전체,정답 공개)</div>
   </div>
  <div class="credit-bar">제작자: 김혜인 · 문의: hyein_1221@hanmail.net</div>
 </section>
@@ -428,17 +429,34 @@ function scheduleAutoNext(){
 }
 function clearNextTimeout(){ if(nextTimeout){ clearTimeout(nextTimeout); nextTimeout=null; } }
 
-/* 단축키: 스페이스(일시정지/재개), d/a(다음/이전) */
-window.addEventListener('keydown',(e)=>{
-  if(game.style.display==='none') return;
-  const k=e.key.toLowerCase();
-  if(k===' '){ e.preventDefault(); paused ? (paused=false, startAutoReveal(), startCountdown()) : (paused=true, stopAutoReveal(), stopCountdown(), clearNextTimeout()); }
-  if(k==='d'){ nextBtn.click(); }
-  if(k==='a'){ prevBtn.click(); }
-});
+/* 단축키: 스페이스(일시정지/재개), A/D(다음/이전), O(전체 공개) */
+window.addEventListener('keydown', (e) => {
+  if (game.style.display === 'none') return;
+
+  const k = e.key.toLowerCase();
+
+  if (k === ' ') {
+    e.preventDefault();
+    paused ? (paused = false, startAutoReveal(), startCountdown()) : (paused = true, stopAutoReveal(), stopCountdown(), clearNextTimeout());
+  }
+  
+  if (k === 'a') {
+    prevBtn.click();
+  }
+  
+  if (k === 'd') {
+    nextBtn.click();
+  }
+  
+  // 👇 이 부분을 추가하세요!
+  if (k === 'o') {
+    revealAllBtn.click();
+  }
+});;
 </script>
 </body>
 </html>
+
 
 
 
