@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>이미지 퀴즈_hyein</title>
+<style>
+  :root{
+    --gap: 0px;            /* 빈틈 없이 시작 */
+    --tile-opacity: 1;     /* 완전 불투명 */
+    --radius: 12px;
+    --anim: 240ms;
+    --bg: #0b1020;
+    --fg: #eaf0ff;
+    --accent: #38bdf8;
+    --cover: #0f172a;      /* 타일(덮개) 색 */
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:system-ui,-apple-system,"Noto Sans KR",Roboto,sans-serif;
+    background: var(--bg); color: var(--fg);
+    min-height:100svh; display:grid; grid-template-rows:1fr;
+  }
+
+  /* === 1P: 세팅 화면 === */
+  #setup{
+    max-width:1100px; margin:auto; width:clamp(320px, 92vw, 1100px);
+    padding:24px; display:grid; gap:18px;
+  }
+  .panel{
+    background:#101635; border:1px solid #1e264f; border-radius:16px; padding:16px;
+  }
+  .grid2{display:grid; grid-template-columns:1.2fr 1fr; gap:16px}
+  .grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
+  .field{display:grid; gap:10px; min-width:0}
+  label{font-size:18px; color:#c7d2fe}
+  input[type="file"], input[type="number"], input[type="text"]{width:100%}
+  input[type="number"], input[type="text"]{
+    background:#121737; color:var(--fg); border:1px solid #2a3170;
+    border-radius:10px; padding:10px 12px;
+  }
+  .btn{
+    padding:15px 15px; border-radius:10px; border:2px solid #2a3170;
+    background:#151b3a; color:var(--fg); font-weight:700; cursor:pointer;
+  }
+  .btn:hover{background:#111739}
+  .btn.primary{background:var(--accent); border-color:#0ea5e9; color:#07131b}
+  .hint{font-size:15px; color:#9aa4d6}
+  h1{margin:4px 0 0; font-size:22px}
+
+  /* === 2P: 게임 화면 === */
+  #game{display:none; place-items:center; padding:clamp(10px,3vw,24px)}
+  .stage-wrap{
+    width:min(1150px,95vw); aspect-ratio:16/9; position:relative;
+    border:1px solid #1f2540; border-radius:var(--radius); overflow:hidden;
+    background:#0e1433; box-shadow:0 10px 40px rgba(0,0,0,.35);
+  }
+  .stage-bg{position:absolute; inset:0; background:center/cover no-repeat #0e1433}
+  .grid{
+    position:absolute; inset:0; display:grid; gap:var(--gap); padding:0;
+    background: transparent;   /* 핵심: 그리드 배경은 투명! */
+  }
+  .tile{
+    background:var(--cover); opacity:var(--tile-opacity); border:none; border-radius:0;
+    transition:opacity var(--anim) ease; cursor:pointer;
+  }
+  .tile.revealed{opacity:0; pointer-events:none}
+
+  .hud{
+    position:absolute; inset:auto 10px 10px 10px; display:flex; gap:8px; flex-wrap:wrap;
+    background:rgba(10,12,28,.56); border:1px solid rgba(255,255,255,.08);
+    padding:8px; border-radius:12px; backdrop-filter: blur(6px);
+  }
+  .btn.small{padding:8px 10px; font-weight:600}
+
+  .status{
+    position:absolute; top:10px; right:10px; display:flex; gap:8px; flex-wrap:wrap
+  }
+  .chip{
+    background:rgba(10,12,28,.58); border:1px solid rgba(255,255,255,.1);
+    padding:6px 10px; border-radius:999px; font-size:12px; backdrop-filter: blur(6px);
+  }
+
+ .answer-badge{
+  position:absolute; right:14px; bottom:14px;
+  background:rgba(56,189,248,.18);
+  border:1px solid rgba(56,189,248,.6);
+  color:#e0f2fe;
+  padding:22px 26px;            /* ↑ 패딩 업 */
+  border-radius:14px;
+  font-weight:800;
+  backdrop-filter:blur(6px);
+  display:none;
+  font-size:64px;               /* ✅ 2배 */
+  text-shadow:0 1px 0 #05121a;
+  z-index: 5;                    /* 겹침 방지 */
+}
+
+  .credit-bar{
+  margin-top: 10px;
+  align-self: center;           /* 가운데 정렬 */
+  background: rgba(10,12,28,.65);
+  color: #c7d2fe;
+  border: 1px solid rgba(255,255,255,.12);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+}
+</style>
+</head>
+<body>
+
+<!-- 1P: 세팅 -->
+<section id="setup">
+  <h1>이미지 퀴즈_hyein</h1>
+
+  <div class="panel grid2">
+    <div class="field">
+      <label>이미지 선택 (여러 장 가능 / 드래그&드롭 가능)</label>
+      <input id="files" type="file" accept="image/*" multiple />
+      <div class="hint">권장: 가로 이미지. 개인정보/저작권은 항상 유의하세요.</div>
+    </div>
+    <div class="field">
+      <label>정답<br>(쉼표로 구분 / 미작성시 파일명 자동 사용)</label>
+      <input id="answersInput" type="text" placeholder="예) 강아지, 고양이, 사과, 연필" />
+    </div>
+  </div>
+
+  <div class="panel grid4">
+    <div class="field"><label>행(Row)</label><input id="rows" type="number" min="2" max="60" value="6"></div>
+    <div class="field"><label>열(Col)</label><input id="cols" type="number" min="2" max="60" value="10"></div>
+    <div class="field"><label>자동 공개 간격(ms)</label><input id="intervalMs" type="number" min="50" step="10" value="200"></div>
+    <div class="field"><label>라운드 타이머(초)</label><input id="roundSec" type="number" min="5" step="1" value="30"></div>
+    <div class="field"><label>타임아웃 후 자동넘김(초)</label><input id="autoNextSec" type="number" min="0" step="0.5" value="2"></div>
+    <div class="field"><label>&nbsp;</label><button id="start" class="btn primary">퀴즈 시작</button></div>
+    <div class="field"><label>&nbsp;</label><button id="demo" class="btn">샘플 이미지로 미리보기</button></div>
+  </div>
+
+  <div class="panel">
+    <div class="hint">Tip) 6×10, 자동공개 200~400ms 타이머 20~30초로 먼저 테스트 후 난이도 조절하세요. <br> 자동 공개 간격의 경우 숫자가 낮을 수록 빨리 공개됩니다. <br> 단축키: 스페이스(일시정지/다시 시작), A/D(다음/이전)</div>
+  </div>
+ <div class="credit-bar">제작자: 혜인 · 문의: hyein_1221@hanmail.net</div>
+</section>
+</section>
+
+<!-- 2P: 게임 -->
+<section id="game">
+  <div id="stage" class="stage-wrap" aria-live="polite">
+    <div id="bg" class="stage-bg" role="img" aria-label="퀴즈 이미지"></div>
+    <div id="grid" class="grid" aria-label="덮개 격자"></div>
+
+    <div class="hud">
+      <button id="revealAll" class="btn small">전체 공개</button>
+      <button id="hideAll" class="btn small">전체 가리기</button>
+      <button id="pause" class="btn small">일시정지</button>
+      <button id="resume" class="btn small">다시 시작</button>
+      <button id="prev" class="btn small">이전</button>
+      <button id="next" class="btn small">다음</button>
+      <button id="backToSetup" class="btn small">처음으로</button>
+    </div>
+
+    <div class="status">
+      <div id="chipIdx" class="chip">이미지 0/0</div>
+      <div id="chipHidden" class="chip">숨김: 0칸</div>
+      <div id="chipTimer" class="chip">남은 시간: 0s</div>
+      <div id="chipAuto" class="chip">자동공개: 꺼짐</div>
+    </div>
+
+ <div id="answerBadge" class="answer-badge">정답: -</div>
+  </div>
+
+  <!-- ✅ 스테이지 바깥(아래)으로 이동 -->
+  <div class="credit-bar">제작자: 혜인 · 문의: hyein_1221@hanmail.net</div>
+</section>
+
+<script>
+/* ===== 공통 엘리먼트 ===== */
+const setup = document.getElementById('setup');
+const game  = document.getElementById('game');
+
+const filesInput    = document.getElementById('files');
+const answersInput  = document.getElementById('answersInput');
+const rowsInput     = document.getElementById('rows');
+const colsInput     = document.getElementById('cols');
+const intervalMsInput = document.getElementById('intervalMs');
+const roundSecInput = document.getElementById('roundSec');
+const autoNextSecInput = document.getElementById('autoNextSec');
+
+const startBtn = document.getElementById('start');
+const demoBtn  = document.getElementById('demo');
+const prevBtn  = document.getElementById('prev');
+const nextBtn  = document.getElementById('next');
+const revealAllBtn = document.getElementById('revealAll');
+const hideAllBtn   = document.getElementById('hideAll');
+const pauseBtn     = document.getElementById('pause');
+const resumeBtn    = document.getElementById('resume');
+const backBtn      = document.getElementById('backToSetup');
+
+const stage   = document.getElementById('stage');
+const bgEl    = document.getElementById('bg');
+const gridEl  = document.getElementById('grid');
+const answerBadge = document.getElementById('answerBadge');
+
+const chipIdx    = document.getElementById('chipIdx');
+const chipHidden = document.getElementById('chipHidden');
+const chipTimer  = document.getElementById('chipTimer');
+const chipAuto   = document.getElementById('chipAuto');
+
+/* ===== 상태 ===== */
+let images = [];      // dataURL 배열
+let filenames = [];   // 확장자 제거 파일명
+let customAnswers = []; // 사용자 입력 정답(옵션)
+let idx = 0;
+let rows = +rowsInput.value, cols = +colsInput.value;
+
+let autoRevealTimer = null;   // setInterval
+let countdownTimer  = null;   // setInterval(1s)
+let remain = 0;               // 남은 초
+let autoMs = +intervalMsInput.value; // 자동공개 간격(ms)
+let paused = false;
+let nextTimeout = null;       // 타임업 후 자동다음 setTimeout
+
+/* ===== 유틸 ===== */
+function clamp(v, min, max){ return isFinite(v)? Math.max(min, Math.min(max, v)) : min; }
+function baseName(name){ return name.replace(/\.[^/.]+$/,'').replace(/[_\-]+/g,' ').trim(); }
+function updateChips(){
+  const total = rows*cols;
+  const revealed = gridEl.querySelectorAll('.tile.revealed').length;
+  chipIdx.textContent = `이미지 ${images.length? (idx+1):0}/${images.length}`;
+  chipHidden.textContent = `숨김: ${total - revealed}칸`;
+  chipTimer.textContent = `남은 시간: ${remain}s`;
+  chipAuto.textContent  = `자동공개: ${autoRevealTimer? (autoMs+'ms') : '꺼짐'}`;
+}
+function setAspectToImage(dataURL){
+  const img = new Image();
+  img.onload = () => { stage.style.aspectRatio = `${img.width} / ${img.height}`; };
+  img.src = dataURL;
+}
+function parseAnswersInput(){
+  customAnswers = (answersInput.value || '')
+    .split(',').map(s=>s.trim());
+}
+
+/* WebAudio 비프 */
+let audioCtx = null;
+function beep(freq=880, dur=0.15, vol=0.2){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+  o.type='sine'; o.frequency.value=freq; g.gain.value=vol;
+  o.connect(g); g.connect(audioCtx.destination); o.start();
+  setTimeout(()=>o.stop(), dur*1000);
+}
+
+/* ===== 세팅 이벤트 ===== */
+answersInput.addEventListener('change', parseAnswersInput);
+
+filesInput.addEventListener('change', async (e)=>{
+  const files = [...e.target.files].filter(f=>f.type.startsWith('image/'));
+  images = []; filenames = [];
+  for (const f of files){
+    images.push(await fileToDataURL(f));
+    filenames.push(baseName(f.name));
+  }
+});
+
+demoBtn.addEventListener('click', async ()=>{
+  // 오프라인 샘플 3장
+  const makeSolid = (w,h,color,text)=> {
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    const x=c.getContext('2d'); x.fillStyle=color; x.fillRect(0,0,w,h);
+    x.fillStyle='#fff'; x.font='bold 96px system-ui'; x.textAlign='center'; x.textBaseline='middle';
+    x.fillText(text,w/2,h/2);
+    return c.toDataURL('image/png');
+  };
+  images=[makeSolid(1280,720,'#ef4444','사과'), makeSolid(1280,720,'#22c55e','나무'), makeSolid(1280,720,'#3b82f6','바다')];
+  filenames=['사과','나무','바다'];
+  answersInput.value='사과, 나무, 바다';
+  parseAnswersInput();
+  alert('샘플 이미지 3장이 로드되었습니다.');
+});
+
+startBtn.addEventListener('click', ()=>{
+  if(!images.length){ alert('이미지를 먼저 선택해 주세요.'); return; }
+  parseAnswersInput();
+  setup.style.display='none';
+  game.style.display='grid';
+  idx=0;
+  setupRound();
+});
+backBtn.addEventListener('click', ()=>{
+  stopEverything();
+  game.style.display='none';
+  setup.style.display='grid';
+});
+
+function fileToDataURL(file){
+  return new Promise((res)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); });
+}
+
+/* ===== 게임 컨트롤 ===== */
+prevBtn.addEventListener('click', ()=>{ if(!images.length) return; idx=(idx-1+images.length)%images.length; setupRound(); });
+nextBtn.addEventListener('click', ()=>{ if(!images.length) return; idx=(idx+1)%images.length; setupRound(); });
+
+revealAllBtn.addEventListener('click', ()=>{ revealAll(); showAnswer(); });
+hideAllBtn.addEventListener('click', ()=>{ hideAll(); });
+pauseBtn.addEventListener('click', ()=>{ paused=true; stopAutoReveal(); stopCountdown(); clearNextTimeout(); });
+resumeBtn.addEventListener('click', ()=>{ paused=false; startAutoReveal(); startCountdown(); });
+
+rowsInput.addEventListener('change', ()=>{ if(game.style.display!=='none'){ rows=clamp(+rowsInput.value,2,60); buildGrid(); startAutoReveal(); }});
+colsInput.addEventListener('change', ()=>{ if(game.style.display!=='none'){ cols=clamp(+colsInput.value,2,60); buildGrid(); startAutoReveal(); }});
+intervalMsInput.addEventListener('change', ()=>{ autoMs=Math.max(50,+intervalMsInput.value||200); if(game.style.display!=='none') startAutoReveal(); updateChips(); });
+roundSecInput.addEventListener('change', ()=>{ remain = Math.max(5,+roundSecInput.value||30); updateChips(); });
+
+/* ===== 라운드 세팅 ===== */
+function setupRound(){
+  clearNextTimeout();
+  answerBadge.style.display='none'; // 시작 시 정답 숨김
+
+  const url = images[idx];
+  bgEl.style.backgroundImage = `url('${url}')`;
+  setAspectToImage(url);
+
+  rows = clamp(+rowsInput.value,2,60);
+  cols = clamp(+colsInput.value,2,60);
+  buildGrid();
+
+  autoMs = Math.max(50, +intervalMsInput.value||200);
+  remain  = Math.max(5, +roundSecInput.value||30);
+
+  startAutoReveal();
+  startCountdown();
+  updateChips();
+}
+function stopEverything(){
+  stopAutoReveal(); stopCountdown(); clearNextTimeout();
+}
+
+/* ===== 격자/타일 ===== */
+function buildGrid(){
+  stopAutoReveal();
+  gridEl.innerHTML='';
+  gridEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  const total = rows*cols;
+  for(let i=0;i<total;i++){
+    const b=document.createElement('button');
+    b.className='tile'; b.type='button';
+    b.addEventListener('click', ()=>revealTile(b));
+    gridEl.appendChild(b);
+  }
+  updateChips();
+}
+function revealTile(t){
+  if(!t.classList.contains('revealed')){
+    t.classList.add('revealed'); updateChips();
+    if(gridEl.querySelectorAll('.tile:not(.revealed)').length===0){
+      stopAutoReveal(); stopCountdown(); showAnswer(); scheduleAutoNext();
+    }
+  }
+}
+function revealRandomTile(){
+  const hidden=[...gridEl.querySelectorAll('.tile:not(.revealed)')];
+  if(!hidden.length) return;
+  const pick=hidden[Math.floor(Math.random()*hidden.length)];
+  revealTile(pick);
+}
+function revealAll(){ gridEl.querySelectorAll('.tile').forEach(t=>t.classList.add('revealed')); updateChips(); stopAutoReveal(); stopCountdown(); showAnswer(); }
+function hideAll(){ gridEl.querySelectorAll('.tile').forEach(t=>t.classList.remove('revealed')); updateChips(); answerBadge.style.display='none'; }
+
+/* ===== 자동 공개 & 타이머 ===== */
+function startAutoReveal(){
+  stopAutoReveal();
+  autoRevealTimer = setInterval(()=>{ if(!paused) revealRandomTile(); }, autoMs);
+  updateChips();
+}
+function stopAutoReveal(){ if(autoRevealTimer){ clearInterval(autoRevealTimer); autoRevealTimer=null; updateChips(); } }
+
+function startCountdown(){
+  stopCountdown();
+  chipTimer.textContent = `남은 시간: ${remain}s`;
+  countdownTimer = setInterval(()=>{
+    if(paused) return;
+    remain -= 1;
+    chipTimer.textContent = `남은 시간: ${remain}s`;
+    if(remain<=10 && remain>0) beep(900,0.12,0.25);     // 10초 경고음
+    if(remain<=0){
+      beep(500,0.25,0.35); beep(300,0.25,0.35);
+      revealAll(); // 내부에서 showAnswer 호출됨
+      stopCountdown(); scheduleAutoNext();
+    }
+  },1000);
+}
+function stopCountdown(){ if(countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; } }
+
+/* ===== 정답 ===== */
+function currentAnswer(){
+  const user = (customAnswers[idx]||'').trim();
+  if(user) return user;
+  return filenames[idx] || '-';
+}
+function showAnswer(){
+  answerBadge.textContent = '정답: ' + currentAnswer();
+  answerBadge.style.display = 'block';
+}
+
+/* ===== 타임업 후 자동다음 ===== */
+function scheduleAutoNext(){
+  const delaySec = Math.max(0, +autoNextSecInput.value||0);
+  if(!images.length || delaySec===0) return;
+  clearNextTimeout();
+  nextTimeout = setTimeout(()=>{ idx = (idx + 1) % images.length; setupRound(); }, delaySec*1000);
+}
+function clearNextTimeout(){ if(nextTimeout){ clearTimeout(nextTimeout); nextTimeout=null; } }
+
+/* 단축키: 스페이스(일시정지/재개), A/D(다음/이전) */
+window.addEventListener('keydown',(e)=>{
+  if(game.style.display==='none') return;
+  const k=e.key.toLowerCase();
+  if(k===' '){ e.preventDefault(); paused ? (paused=false, startAutoReveal(), startCountdown()) : (paused=true, stopAutoReveal(), stopCountdown(), clearNextTimeout()); }
+  if(k==='A'){ nextBtn.click(); }
+  if(k==='D'){ prevBtn.click(); }
+});
+</script>
+</body>
+</html>
